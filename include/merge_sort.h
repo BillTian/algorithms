@@ -13,8 +13,8 @@
  *       and right part.
  *           Example: Say the input is  -10 32 45 -78 91 1 0 -16 then the left part will be  
  *           -10 32 45 -78 and the right part will be  91 1 0 6.
- *   (2) Sort Each of them seperately. Note that here sort does not mean to sort it using some other
- *            method. We already wrote fucntion to sort it. Use the same.
+ *   (2) Sort Each of them separately. Note that here sort does not mean to sort it using some other
+ *            method. We already wrote function to sort it. Use the same.
  *   (3) Then merge the two sorted parts.
  *
  * ------------
@@ -32,60 +32,52 @@
  *
  ******************************************************************************/
 
-#ifndef __MERGE_SORT_H__
-#define __MERGE_SORT_H__
+#ifndef ALGO_MERGE_SORT_H__
+#define ALGO_MERGE_SORT_H__
 
-namespace alg
-{
+namespace alg {
 	/**
 	 * Merge functions merges the two sorted parts. Sorted parts will be from [left, mid] and [mid+1, right].
 	 */
 	template<typename T>
-	static void __merge(T *array, int left, int mid, int right)
-	{
+		static void merge_(T *array, int left, int mid, int right) {
 			/*We need a Temporary array to store the new sorted part*/
 			T tempArray[right-left+1];
 			int pos=0,lpos = left,rpos = mid + 1;
-			while(lpos <= mid && rpos <= right)
-			{
-					if(array[lpos] < array[rpos])
-					{
-							tempArray[pos++] = array[lpos++];
-					}
-					else
-					{
-							tempArray[pos++] = array[rpos++];
-					}
+			while(lpos <= mid && rpos <= right) {
+				if(array[lpos] < array[rpos]) {
+					tempArray[pos++] = array[lpos++];
+				}
+				else {
+					tempArray[pos++] = array[rpos++];
+				}
 			}
 			while(lpos <= mid)  tempArray[pos++] = array[lpos++];
 			while(rpos <= right)tempArray[pos++] = array[rpos++];
 			int iter;
 			/* Copy back the sorted array to the original array */
-			for(iter = 0;iter < pos; iter++)
-			{
-					array[iter+left] = tempArray[iter];
+			for(iter = 0;iter < pos; iter++) {
+				array[iter+left] = tempArray[iter];
 			}
 			return;
-	}
+		}
 
 	/**
 	 * sort an array from left->right 
 	 */
 	template<typename T>
-	static void merge_sort(T *array, int left, int right)
-	{
+		static void merge_sort(T *array, int left, int right) {
 			int mid = (left+right)/2;
 			/* We have to sort only when left<right because when left=right it is anyhow sorted*/
-			if(left<right)
-			{
-					/* Sort the left part */
-					merge_sort(array,left,mid);
-					/* Sort the right part */
-					merge_sort(array,mid+1,right);
-					/* Merge the two sorted parts */
-					__merge(array,left,mid,right);
+			if(left<right) {
+				/* Sort the left part */
+				merge_sort(array,left,mid);
+				/* Sort the right part */
+				merge_sort(array,mid+1,right);
+				/* Merge the two sorted parts */
+				merge_(array,left,mid,right);
 			}
-	}
+		}
 
 }
 

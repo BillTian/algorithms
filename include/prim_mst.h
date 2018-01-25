@@ -22,170 +22,80 @@
  *
  ******************************************************************************/
 
-#ifndef __PRIM_MST_H__
-#define __PRIM_MST_H__
+#ifndef ALGO_PRIM_MST_H__
+#define ALGO_PRIM_MST_H__
 
 #include <stdio.h>
 #include <stdlib.h>
 #include "undirected_graph.h"
 #include "double_linked_list.h"
 #include "heap.h"
+#include "hash_table.h"
 
-namespace alg 
-{
-	class Prim 
-	{
-	private:
-		/**
-		 * Prim's Adjacent Lists, for Prim's Algorithm caculation
-		 */
-		struct PrimAdjacent {
-			Heap<Graph::Vertex*> heap; 		// binary heap representation of weight->node
-								// the top of the heap is always the minimal element
-			const Graph::Vertex & v;
+namespace alg {
+	class Prim {
+		public:
+			static const int LARGE_NUMBER = 999999;
+			/**
+			 * Prim's Algorithm. 
+			 *
+			 * Input: A non-empty connected weighted graph with vertices V and edges E 
+			 *        (the weights can be negative).
+			 *
+			 * Initialize: Vnew = {x}, where x is an arbitrary node (starting point) from V, Enew = {}
+			 *
+			 * Repeat until Vnew = V:
+			 *   1. Choose an edge {u, v} with minimal weight such that u is in Vnew and v
+			 *      is not (if there are multiple edges with the same weight, any of them may be picked)
+			 *   2. Add v to Vnew, and {u, v} to Enew
+			 *
+			 * Output: Vnew and Enew describe a minimal spanning tree
+			 */
+			static Graph * run(const Graph & g, int32_t src_id) {
+				UndirectedGraph * mst = new UndirectedGraph(); // empty set == Vnew
+				// weight hash table
+				HashTable<int32_t, int32_t> keys(g.vertex_count());
+				// previous vertex hash table
+				HashTable<int32_t, int32_t> pi(g.vertex_count()); 
 
-			PrimAdjacent(const Graph::Vertex & vertex, uint32_t num_neigh):heap(num_neigh),v(vertex) { }
+				// a binary heap
+				Heap<uint32_t> Q(g.vertex_count());
 
-			struct list_head pa_node; 
-		};
-
-		/**
-		 * Prim's Graph, simplified to list.
-		 */
-		typedef struct list_head PrimGraph;
-	private:
-		PrimGraph m_pg;
-	public:
-		/**
-		 * construct Prim's DataStrcuture by a given graph
-		 */	
-		Prim(const Graph & g)
-		{
-			INIT_LIST_HEAD(&m_pg);
-
-			Graph::Adjacent * a;
-			list_for_each_entry(a, &g.list(), a_node){
-				add_adjacent(*a);
-			}
-		}
-
-		~Prim()
-		{
-			PrimAdjacent * pa, *pan;
-			list_for_each_entry_safe(pa, pan, &m_pg, pa_node){
-				list_del(&pa->pa_node);
-				delete pa;
-			}
-		}
-	private:
-		Prim(const Prim&);
-		Prim& operator= (const Prim&);
-	private:
-		/**
-		 * add an adjacent list to prim's graph
-		 */
-		void add_adjacent(const Graph::Adjacent & a)
-		{
-			PrimAdjacent * pa = new PrimAdjacent(a.vertex(), a.num_neigh);
-			list_add_tail(&pa->pa_node, &m_pg);
-
-			Graph::Vertex * v;
-			list_for_each_entry(v, &a.v_head, v_node){
-				pa->heap.insert(v->weight, v);  // weight->vertex
-			}
-		}
-
-		/**
-		 * lookup up a given id
-		 * the related adjacent list is returned.
-		 */ 
-		PrimAdjacent * lookup(uint32_t id) const
-		{
-			PrimAdjacent * pa;
-			list_for_each_entry(pa, &m_pg, pa_node){
-				if (pa->v.id == id) { return pa;}
-			}
+				// all vertices
+				Graph::Adjacent * a;
+				list_for_each_entry(a, &g.list(), a_node){
+					Q.push(LARGE_NUMBER, a->v.id);
+					keys[a->v.id] = LARGE_NUMBER;
+				}
 			
-			return NULL;
-		}
-	public:
-		/**
-		 * Prim's Algorithm. 
-		 *
-		 * Input: A non-empty connected weighted graph with vertices V and edges E 
-		 *        (the weights can be negative).
-		 *
-		 * Initialize: Vnew = {x}, where x is an arbitrary node (starting point) from V, Enew = {}
-		 *
-		 * Repeat until Vnew = V:
-		 *   1. Choose an edge {u, v} with minimal weight such that u is in Vnew and v
-		 *      is not (if there are multiple edges with the same weight, any of them may be picked)
-		 *   2. Add v to Vnew, and {u, v} to Enew
-		 *
-		 * Output: Vnew and Enew describe a minimal spanning tree
-		 */
-		Graph * run()
-		{
-			UndirectedGraph * mst = new UndirectedGraph(); // empty set == Vnew
-			
-			// choose the first vertex as the starting point
-			PrimAdjacent * pa;
-			list_for_each_entry(pa, &m_pg, pa_node){ break; }
-			const Graph::Vertex * v = &pa->v;
-			mst->add_vertex(v->id);
+				Q.decrease_key(src_id, 0);
+				keys[src_id] = 0;
 
-			// Prim's Algorithm
-			while(true) {
-				int weight = INT_MAX;			// loop tmp variables
-				uint32_t best_to;
-				struct PrimAdjacent * best_from;
-
-				// for each Vnew, find a new vertex in V that has minimal weight.
-				Graph::Adjacent * a; 
-				list_for_each_entry(a, &mst->list(), a_node){
-					pa = lookup(a->v.id);
-					while (!pa->heap.is_empty()) { 	// find one neighbour
-						v = pa->heap.min_value(); 
-						if ((*mst)[v->id]==NULL) {  // if new V appears 
-							if (pa->heap.min_key() < weight) {
-								weight = pa->heap.min_key();
-								best_to = v->id;
-								best_from = pa; 
-							}
-							break;
-						} else {
-							pa->heap.delete_min();
+				while (!Q.is_empty()) {
+					Heap<uint32_t>::elem e = Q.pop();
+					uint32_t id = e.data;
+					Graph::Adjacent * u = g[id];	// the vertex to process
+					Graph::Vertex * v;
+					list_for_each_entry(v, &u->v_head, v_node) {
+						if (Q.contains(v->id) && v->weight < keys[v->id]) {
+							pi[v->id] = id;
+							Q.decrease_key(v->id, v->weight);
+							keys[v->id] = v->weight;
 						}
 					}
 				}
 
-				if (weight != INT_MAX) {
-					// congrats , new V & E
-					mst->add_vertex(best_to);
-					mst->add_edge(best_from->v.id, best_to, weight);
-					best_from->heap.delete_min();
-				} else break;
-			};
-
-			return mst;
-		}
-
-		/**
-		 * print the PrimGraph
-		 */
-		void print()
-		{
-			struct PrimAdjacent * pa;
-			printf("Prim Graph: \n");
-			list_for_each_entry(pa, &m_pg, pa_node){
-				printf("%d->{", pa->v.id);
-				for(uint32_t i=0;i<pa->heap.count();i++) {
-					Graph::Vertex * v = pa->heap[i];
-					printf("id:%d->w:%d \t", v->id, v->weight);
+				// create graph
+				list_for_each_entry(a, &g.list(), a_node){
+					mst->add_vertex(a->v.id);
+					if (pi[a->v.id] != 0) {
+						mst->add_vertex(pi[a->v.id]);
+						mst->add_edge(pi[a->v.id], a->v.id, (*a)[pi[a->v.id]]->weight);
+					}
 				}
-				printf("}\n");
-			}
-		}
+
+				return mst;
+			};
 	};
 }
 
